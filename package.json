@@ -1,0 +1,20 @@
+{
+  "name": "audio-vector-catalog",
+  "version": "1.0.0",
+  "description": "Audio-to-audio search over a music & podcast catalog with CLAP embeddings and MongoDB Atlas Vector Search",
+  "main": "server.js",
+  "scripts": {
+    "generate": "node generate-audio.js",
+    "seed": "node seed.js",
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@huggingface/transformers": "^3.8.1",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "mongodb": "^6.9.0"
+  }
+}

@@ -1,0 +1,5 @@
+.env
+node_modules/
+.model-cache/
+public/audio/
+public/presets/

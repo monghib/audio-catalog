@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Resonance — Audio Search</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0e0f13; --panel: #16181e; --panel-2: #1d2027; --line: #2a2e38;
+    --text: #eceef3; --muted: #8b91a1; --accent: #3ddc97; --accent-ink: #062a1a;
+    --radius: 14px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.45 Inter, system-ui, sans-serif; }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  .app { display: grid; grid-template-columns: minmax(0, 1fr) 440px; min-height: 100vh; }
+  main { padding: 28px 32px 60px; min-width: 0; }
+  aside { position: sticky; top: 0; height: 100vh; overflow-y: auto; background: var(--panel); border-left: 1px solid var(--line); padding: 28px 24px; }
+
+  header.top { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 22px; }
+  h1 { font: 700 30px Fraunces, serif; letter-spacing: -.02em; margin: 0; }
+  h1 span { color: var(--accent); }
+  .status { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+  .dot.ok { background: var(--accent); } .dot.bad { background: #ff6b6b; }
+
+  h2.section { font: 700 20px Fraunces, serif; margin: 0 0 4px; letter-spacing: -.01em; }
+  .lede { color: var(--muted); margin: 0 0 16px; font-size: 14px; max-width: 70ch; }
+
+  /* preset query clips */
+  .presets { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 12px; margin-bottom: 36px; }
+  .preset { display: flex; align-items: center; gap: 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px; text-align: left; }
+  .preset:hover { border-color: var(--muted); }
+  .preset[aria-pressed="true"] { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+  .preset .ic { flex: none; width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; background: var(--panel-2); color: var(--accent); }
+  .preset[aria-pressed="true"] .ic { background: var(--accent); color: var(--accent-ink); }
+  .preset b { display: block; font-size: 14px; font-weight: 600; }
+  .preset small { color: var(--muted); font-size: 12px; }
+
+  .controls { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 22px; align-items: center; }
+  .search { flex: 1 1 260px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; color: var(--text); font: inherit; }
+  .search:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip { background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 6px 13px; font-size: 13px; color: var(--muted); }
+  .chip[aria-pressed="true"] { background: var(--text); color: var(--bg); border-color: var(--text); }
+  .chip:hover { border-color: var(--muted); }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 16px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px; text-align: left; transition: transform .15s, border-color .15s; }
+  .card:hover { transform: translateY(-2px); border-color: var(--muted); }
+  .card[aria-selected="true"] { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+  .art { aspect-ratio: 1; border-radius: 10px; position: relative; overflow: hidden; margin-bottom: 10px; }
+  .art .badge { position: absolute; left: 8px; top: 8px; font-size: 10px; letter-spacing: .08em; text-transform: uppercase; background: rgba(0,0,0,.45); padding: 3px 7px; border-radius: 999px; backdrop-filter: blur(4px); }
+  .art .wave { position: absolute; inset: auto 0 0 0; height: 46%; display: flex; align-items: center; gap: 2px; padding: 0 8px 8px; }
+  .art .wave i { flex: 1; background: rgba(255,255,255,.6); border-radius: 2px; }
+  .card h3 { margin: 0; font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .card p { margin: 2px 0 0; font-size: 12.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  /* side panel */
+  .empty { color: var(--muted); text-align: center; margin-top: 18vh; }
+  .empty b { display: block; font: 700 20px Fraunces, serif; color: var(--text); margin-bottom: 6px; }
+  .kicker { font: 600 11px Inter; text-transform: uppercase; letter-spacing: .1em; color: var(--accent); }
+  .sel .art { aspect-ratio: 16/9; border-radius: 12px; }
+  .sel .art .wave { height: 60%; }
+  .sel h2 { font: 700 22px Fraunces, serif; margin: 6px 0 2px; letter-spacing: -.01em; }
+  .sel .meta { color: var(--muted); font-size: 13px; }
+  audio { width: 100%; margin-top: 14px; height: 36px; }
+  .stats { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+  .stat { background: var(--panel-2); border-radius: 8px; padding: 6px 10px; font-size: 12px; color: var(--muted); }
+  .stat b { color: var(--text); font-weight: 600; }
+
+  .sim-head { display: flex; align-items: center; justify-content: space-between; margin: 24px 0 10px; }
+  .sim-head h4 { margin: 0; font: 600 13px Inter; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+  .seg { display: flex; background: var(--panel-2); border-radius: 8px; padding: 2px; }
+  .seg button { background: none; border: 0; padding: 4px 10px; border-radius: 6px; font-size: 12px; color: var(--muted); }
+  .seg button[aria-pressed="true"] { background: var(--text); color: var(--bg); }
+
+  .result { display: grid; grid-template-columns: 40px 1fr auto; gap: 12px; align-items: center; border-bottom: 1px solid var(--line); padding: 10px 4px; }
+  .result:hover { background: var(--panel-2); }
+  .play { width: 40px; height: 40px; border-radius: 10px; border: 0; display: grid; place-items: center; color: #fff; }
+  .play svg { filter: drop-shadow(0 1px 2px rgba(0,0,0,.4)); }
+  .result .info { background: none; border: 0; padding: 0; text-align: left; min-width: 0; }
+  .result .t { font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .result .s { font-size: 12.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .result .at { color: var(--accent); }
+  .score { text-align: right; font-variant-numeric: tabular-nums; }
+  .score b { display: block; font-size: 15px; color: var(--accent); }
+  .score .m { width: 54px; height: 3px; background: var(--panel-2); border-radius: 3px; margin-top: 4px; overflow: hidden; }
+  .score .m i { display: block; height: 100%; background: var(--accent); }
+  .err { background: #3a1c1c; border: 1px solid #6b2b2b; color: #ffb4b4; padding: 12px 14px; border-radius: 10px; font-size: 13px; }
+  .how { margin-top: 22px; font-size: 12.5px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 14px; }
+  .how code { color: var(--text); }
+
+  @media (max-width: 960px) {
+    .app { grid-template-columns: 1fr; }
+    main { padding: 24px 16px 40px; }
+    aside { position: static; height: auto; border-left: 0; border-top: 1px solid var(--line); padding: 24px 16px; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <main>
+    <header class="top">
+      <h1>Reso<span>nance</span></h1>
+      <div class="status"><span class="dot" id="dot"></span><span id="statusText">Connecting…</span></div>
+    </header>
+
+    <h2 class="section">Search by sound</h2>
+    <p class="lede">Pick an audio clip. It's embedded with CLAP and matched against every 10-second segment of the catalog using MongoDB Atlas Vector Search. None of these clips are in the catalog.</p>
+    <div class="presets" id="presets" role="group" aria-label="Query clips"></div>
+
+    <h2 class="section">Catalog</h2>
+    <p class="lede">100 tracks and episodes. Select one to find what sounds like it.</p>
+    <div class="controls">
+      <input id="q" class="search" type="search" placeholder="Search titles, artists, shows…" aria-label="Search catalog">
+      <div class="chips" id="chips" role="group" aria-label="Filter by category"></div>
+    </div>
+    <div class="grid" id="grid" role="listbox" aria-label="Catalog"></div>
+  </main>
+  <aside id="panel" aria-live="polite">
+    <div class="empty"><b>Search with audio</b>Choose a clip on the left, or select any catalog item, to find the closest matches by sound.</div>
+  </aside>
+</div>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const state = { tracks: [], categories: [], presets: [], category: '', q: '', kind: '', mode: null };
+const player = new Audio();
+let playingKey = null;
+
+const ICON = {
+  play: '<svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true"><path d="M3 1.5v11l9.5-5.5z"/></svg>',
+  pause: '<svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true"><path d="M3 1.5h3v11H3zM8 1.5h3v11H8z"/></svg>',
+  wave: '<svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M2 9h1M5.5 5v8M9 2v14M12.5 6v6M16 8v2"/></svg>',
+};
+const fmt = (sec) => `${Math.floor(sec / 60)}:${String(Math.round(sec % 60)).padStart(2, '0')}`;
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const bg = (h) => `background:linear-gradient(135deg,hsl(${h} 70% 42%),hsl(${(h+50)%360} 65% 22%))`;
+// $vectorSearch cosine score is (1 + cos) / 2; show cosine similarity as a percentage
+const pct = (score) => Math.max(0, Math.round((2 * score - 1) * 100));
+
+const wave = (peaks = []) => `<div class="wave">${peaks.filter((_, i) => i % 2 === 0).map((p) => `<i style="height:${Math.max(6, p * 100)}%"></i>`).join('')}</div>`;
+const art = (t) => `<div class="art" style="${bg(t.hue)}"><span class="badge">${t.kind}</span>${wave(t.peaks)}</div>`;
+
+async function api(path, opts) {
+  const r = await fetch(path, opts);
+  const body = await r.json();
+  if (!r.ok) throw new Error(body.error || r.statusText);
+  return body;
+}
+
+// One shared player; `key` identifies which button started it
+function toggle(key, url, start = 0) {
+  if (playingKey === key && !player.paused) { player.pause(); return; }
+  player.src = url;
+  player.currentTime = start;
+  player.play().catch(() => {});
+  playingKey = key;
+  syncButtons();
+}
+player.addEventListener('pause', syncButtons);
+player.addEventListener('ended', () => { playingKey = null; syncButtons(); });
+function syncButtons() {
+  document.querySelectorAll('[data-play]').forEach((b) => {
+    const on = b.dataset.play === playingKey && !player.paused;
+    b.innerHTML = on ? ICON.pause : ICON.play;
+    b.setAttribute('aria-label', (on ? 'Pause ' : 'Play ') + b.dataset.name);
+  });
+}
+
+async function loadStatus() {
+  try {
+    const s = await api('/api/status');
+    $('#dot').className = 'dot ' + (s.indexQueryable ? 'ok' : 'bad');
+    $('#statusText').textContent = s.indexQueryable ? `${s.count} tracks · ${s.segments.toLocaleString()} audio segments · vector indexes ready` : `${s.count} tracks · index ${s.indexStatus}`;
+  } catch (e) { $('#dot').className = 'dot bad'; $('#statusText').textContent = 'Database unreachable'; }
+}
+
+async function loadCatalog() {
+  const p = new URLSearchParams();
+  if (state.q) p.set('q', state.q);
+  if (state.category) p.set('category', state.category);
+  state.tracks = await api('/api/tracks?' + p);
+  renderGrid();
+}
+
+function renderPresets() {
+  const sel = state.mode?.type === 'preset' ? state.mode.preset.id : null;
+  $('#presets').innerHTML = state.presets.map((p) => `
+    <button class="preset" data-preset="${p.id}" aria-pressed="${p.id === sel}">
+      <span class="ic">${ICON.wave}</span><span><b>${esc(p.label)}</b><small>Query clip · 12s</small></span>
+    </button>`).join('');
+}
+
+function renderChips() {
+  const all = [{ category: '', label: 'All' }, ...state.categories.map((c) => ({ category: c.category, label: c.category }))];
+  $('#chips').innerHTML = all.map((c) => `<button class="chip" data-cat="${esc(c.category)}" aria-pressed="${state.category === c.category}">${esc(c.label)}</button>`).join('');
+}
+
+function renderGrid() {
+  const sel = state.mode?.type === 'track' ? state.mode.id : null;
+  $('#grid').innerHTML = state.tracks.map((t) => `
+    <button class="card" role="option" data-id="${t.trackId}" aria-selected="${t.trackId === sel}">
+      ${art(t)}<h3>${esc(t.title)}</h3><p>${esc(t.creator)} · ${esc(t.category)}</p>
+    </button>`).join('') || '<p style="color:var(--muted)">No matches.</p>';
+}
+
+const kindToggle = () => `
+  <div class="seg" role="group" aria-label="Result type">
+    ${[['', 'All'], ['music', 'Music'], ['podcast', 'Podcasts']].map(([v, l]) => `<button data-kind="${v}" aria-pressed="${state.kind === v}">${l}</button>`).join('')}
+  </div>`;
+
+function resultRows(results, withTimestamp) {
+  return results.map((r) => {
+    const m = pct(r.score), key = `r${r.trackId}`, start = withTimestamp ? r.matchStart : 0;
+    return `<div class="result">
+      <button class="play" style="${bg(r.hue)}" data-play="${key}" data-url="${r.audioUrl}" data-start="${start}" data-name="${esc(r.title)}">${ICON.play}</button>
+      <button class="info" data-id="${r.trackId}">
+        <div class="t">${esc(r.title)}</div>
+        <div class="s">${esc(r.creator)} · ${esc(r.category)}${withTimestamp ? ` · <span class="at">match at ${fmt(r.matchStart)}</span>` : ''}</div>
+      </button>
+      <div class="score"><b>${m}%</b><div class="m"><i style="width:${m}%"></i></div></div>
+    </div>`; }).join('');
+}
+
+async function searchPreset(preset, autoplay = true) {
+  state.mode = { type: 'preset', preset };
+  renderPresets(); renderGrid();
+  if (autoplay) toggle(`q-${preset.id}`, preset.audioUrl);
+  $('#panel').innerHTML = '<div class="empty">Embedding audio and searching vectors…</div>';
+  try {
+    const wav = await (await fetch(preset.audioUrl)).arrayBuffer();
+    const p = new URLSearchParams({ limit: 8 });
+    if (state.kind) p.set('kind', state.kind);
+    const { query, results } = await api('/api/search/audio?' + p, { method: 'POST', headers: { 'Content-Type': 'audio/wav' }, body: wav });
+    $('#panel').innerHTML = `
+      <div class="sel">
+        <div class="kicker">Query audio</div>
+        <h2>${esc(preset.label)}</h2>
+        <div class="meta">Not in the catalog · ${query.durationSec}s clip</div>
+        <div class="result" style="border:0;padding:12px 0 0">
+          <button class="play" style="background:var(--panel-2);color:var(--accent)" data-play="q-${preset.id}" data-url="${preset.audioUrl}" data-start="0" data-name="${esc(preset.label)}">${ICON.play}</button>
+          <div class="s" style="color:var(--muted);font-size:13px">Play the query clip</div><div></div>
+        </div>
+        <div class="stats">
+          <span class="stat">CLAP embedding <b>${query.embedMs} ms</b></span>
+          <span class="stat">$vectorSearch <b>${query.searchMs} ms</b></span>
+        </div>
+      </div>
+      <div class="sim-head"><h4>Closest in catalog</h4>${kindToggle()}</div>
+      ${resultRows(results, true)}
+      <div class="how">The clip is turned into a 512-dimension vector, compared with every 10-second segment of the catalog using <code>$vectorSearch</code>, then grouped to the best segment per track. Press play on a result to jump to the matching moment.</div>`;
+    syncButtons();
+  } catch (e) {
+    $('#panel').innerHTML = `<div class="err">Audio search failed: ${esc(e.message)}</div>`;
+  }
+}
+
+async function selectTrack(id) {
+  state.mode = { type: 'track', id };
+  renderPresets(); renderGrid();
+  $('#panel').innerHTML = '<div class="empty">Searching vectors…</div>';
+  try {
+    const p = new URLSearchParams({ limit: 8 });
+    if (state.kind) p.set('kind', state.kind);
+    const { selected: t, results } = await api(`/api/tracks/${id}/similar?` + p);
+    $('#panel').innerHTML = `
+      <div class="sel">
+        ${art(t)}
+        <div class="kicker">${esc(t.category)}</div>
+        <h2>${esc(t.title)}</h2>
+        <div class="meta">${esc(t.creator)} · ${t.releaseYear} · ${fmt(t.durationSec)} · ${t.plays.toLocaleString()} plays</div>
+        <audio controls preload="none" src="${t.audioUrl}"></audio>
+      </div>
+      <div class="sim-head"><h4>Sounds like</h4>${kindToggle()}</div>
+      ${resultRows(results, false)}`;
+    $('#panel audio').addEventListener('play', () => player.pause());
+    syncButtons();
+  } catch (e) {
+    $('#panel').innerHTML = `<div class="err">Similarity search failed: ${esc(e.message)}<br>Run <code>npm run seed</code> and wait for the vector indexes to finish building.</div>`;
+  }
+}
+
+const rerun = () => state.mode?.type === 'preset' ? searchPreset(state.mode.preset, false) : selectTrack(state.mode.id);
+
+$('#presets').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-preset]');
+  if (b) searchPreset(state.presets.find((p) => p.id === b.dataset.preset));
+});
+$('#grid').addEventListener('click', (e) => { const c = e.target.closest('.card'); if (c) selectTrack(Number(c.dataset.id)); });
+$('#panel').addEventListener('click', (e) => {
+  const play = e.target.closest('[data-play]');
+  if (play) return toggle(play.dataset.play, play.dataset.url, Number(play.dataset.start));
+  const seg = e.target.closest('[data-kind]');
+  if (seg) { state.kind = seg.dataset.kind; return rerun(); }
+  const r = e.target.closest('.info');
+  if (r) { player.pause(); selectTrack(Number(r.dataset.id)); }
+});
+$('#chips').addEventListener('click', (e) => {
+  const c = e.target.closest('.chip'); if (!c) return;
+  state.category = c.dataset.cat; renderChips(); loadCatalog();
+});
+let timer; $('#q').addEventListener('input', (e) => { clearTimeout(timer); timer = setTimeout(() => { state.q = e.target.value.trim(); loadCatalog(); }, 200); });
+
+(async () => {
+  loadStatus();
+  try {
+    [state.categories, state.presets] = await Promise.all([api('/api/categories'), api('/api/presets')]);
+    renderPresets(); renderChips(); await loadCatalog();
+  } catch (e) { $('#grid').innerHTML = `<div class="err">${esc(e.message)}</div>`; }
+})();
+</script>
+</body>
+</html>
